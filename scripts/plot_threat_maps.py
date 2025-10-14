@@ -143,8 +143,15 @@ def main(hydro_units_path: str, species_csv: str = None, rivers_path: str = None
 
         out_path = Path(output_path if output_path else "outputs/preview_basins.png")
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out_path, dpi=300)
-        print(f"Saved preview map to {out_path}")
+        # 同时输出 PNG(位图) 与 SVG(矢量)，便于屏幕查看与放大打印
+        fig.set_size_inches(10, 8)
+        fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
+        out_svg = out_path.with_suffix(".svg")
+        try:
+            fig.savefig(out_svg, bbox_inches="tight", facecolor="white")
+            print(f"Saved preview map to {out_path} and {out_svg}")
+        except Exception:
+            print(f"Saved preview map to {out_path}. SVG export failed (likely missing backend)")
         return
 
     # Otherwise join with species table and draw three panels
@@ -161,8 +168,14 @@ def main(hydro_units_path: str, species_csv: str = None, rivers_path: str = None
 
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=300)
-    print(f"Saved figure to {out_path}")
+    # 位图 + 矢量双份输出，保证清晰度
+    fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
+    out_svg = out_path.with_suffix(".svg")
+    try:
+        fig.savefig(out_svg, bbox_inches="tight", facecolor="white")
+        print(f"Saved figure to {out_path} and {out_svg}")
+    except Exception:
+        print(f"Saved figure to {out_path}. SVG export failed (likely missing backend)")
 
 
 if __name__ == "__main__":
