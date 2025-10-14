@@ -1,6 +1,59 @@
 # 尼罗罗非鱼 (Oreochromis niloticus) Biolith 占有模型分析
 
+# VeryBiolith
 本项目使用 [Biolith](https://github.com/timmh/biolith) 包对尼罗罗非鱼的出现数据进行完整的贝叶斯占有模型分析。
+
+## 绘制 Figure S3 风格鱼类受威胁等级地图
+
+该仓库提供了一个可复用脚本 `scripts/plot_threat_maps.py`，用于根据水文分区（如 HydroBASINS）与各分区的鱼类受威胁等级统计（VU、EN、CR），绘制与论文 Figure S3 类似的三联图。
+
+### 数据准备
+- 水文分区矢量数据（Shapefile 或 GeoPackage），例如 HydroBASINS 中国区域。需包含分区唯一 ID（默认 `HYBAS_ID`）。
+- 河流网络（可选），例如 HydroRIVERS（用于叠加河流白色线条）。
+- 物种统计表 CSV：至少包含列 `HYBAS_ID`（或你自定义的分区 ID 列）、`VU`、`EN`、`CR`，分别为每个分区的受威胁物种数。
+
+示例 CSV（列名仅示例）：
+```
+HYBAS_ID,VU,EN,CR
+123456,4,1,0
+123457,7,2,1
+...
+```
+
+### 安装依赖
+建议使用 Python 3.9+，并安装：
+```
+pip install geopandas matplotlib pandas numpy matplotlib-scalebar
+```
+
+### 运行脚本
+在仓库根目录执行：
+```
+python scripts/plot_threat_maps.py --hydro <path/to/hydrobasins.shp> \
+  --species <path/to/fish_threat_by_basin.csv> \
+  --rivers <path/to/hydrorivers.shp> \
+  --id_col HYBAS_ID \
+  --output outputs/figure_s3.png
+```
+
+脚本会：
+- 读取并按分区 ID 连接分区与统计表；缺失值按 0 处理。
+- 重投影到 `EPSG:3857`，便于快速绘图。
+- 分别在三行子图绘制 `VU`、`EN`、`CR`，使用 `RdYlBu_r` 渐变色并叠加河流线。
+- 自动添加“Species Richness”水平颜色条与简易北箭头。
+- 将输出保存到 `outputs/figure_s3.png`。
+
+### 常见定制
+- 更换配色：在 `plot_category(..., cmap="RdYlBu_r")` 修改为 `Spectral_r` 或自定义 cmap。
+- 设定统一上限：把 `vmax` 固定为论文中的最大值，避免不同子图刻度不一致。
+- 改投影：如需等面积投影，可替换为 Albers（部分系统需安装额外投影库）。
+- 添加底图或注记：可以用 `contextily` 加瓦片底图，或在图上标注关键区域。
+
+### 数据来源参考
+- HydroBASINS / HydroSHEDS: https://www.hydrosheds.org/
+- HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers
+
+> 若你已有处理好的数据文件，直接按上面命令运行即可生成与论文风格接近的三联地图。
 
 ## 项目概述
 
