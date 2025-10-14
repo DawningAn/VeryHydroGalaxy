@@ -1,7 +1,4 @@
-# 尼罗罗非鱼 (Oreochromis niloticus) Biolith 占有模型分析
-
-# VeryBiolith
-本项目使用 [Biolith](https://github.com/timmh/biolith) 包对尼罗罗非鱼的出现数据进行完整的贝叶斯占有模型分析。
+# Hydro中国区水文数据处理/模型分析
 
 ## 绘制 Figure S3 风格鱼类受威胁等级地图
 
