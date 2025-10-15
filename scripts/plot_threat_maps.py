@@ -15,10 +15,17 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 """
 DEFAULT_CONFIG = {
     "HYDRO_PATH": r"E:\HydroSHEDS\hybas_as_lev01-12_v1c\hybas_as_lev05_v1c.shp",
-    "RIVERS_PATH": None,
+    "RIVERS_PATH": r"E:\HydroSHEDS\HydroRIVERS_v10_as_shp\HydroRIVERS_v10_as_shp",
     "OUTPUT_PATH": "outputs/preview_basins.png",
     "ATTR": "SUB_AREA",
     "ID_COLUMN": "HYBAS_ID",
+}
+
+# 河网绘制样式：接近附图的浅灰粗线
+RIVER_STYLE = {
+    "color": "#C7CED6",  # 浅灰
+    "linewidth": 2.0,
+    "alpha": 0.95,
 }
 
 def read_and_join(hydro_units_path: str, species_csv: str, id_column: str):
@@ -71,7 +78,7 @@ def plot_category(ax, gdf, rivers_gdf, category, vmax=None, cmap="RdYlBu_r"):
     )
 
     if rivers_gdf is not None and not rivers_gdf.empty:
-        rivers_gdf.plot(ax=ax, color="white", linewidth=0.6)
+        rivers_gdf.plot(ax=ax, **RIVER_STYLE)
 
     ax.set_axis_off()
     add_north_arrow(ax)
@@ -92,6 +99,62 @@ def ensure_projected(gdf, target_crs="EPSG:3857"):
         return gdf
 
 
+def _resolve_shp_path(path_like: str) -> Path:
+    """Resolve a shapefile path: accept file or directory containing .shp.
+
+    If a directory is provided, pick the first .shp file (prefer names containing
+    'HydroRIVERS').
+    """
+    p = Path(path_like)
+    if p.is_file() and p.suffix.lower() == ".shp":
+        return p
+    if p.is_dir():
+        candidates = sorted(list(p.glob("*HydroRIVERS*.shp")))
+        if not candidates:
+            candidates = sorted(list(p.glob("*.shp")))
+        return candidates[0] if candidates else p
+    return p
+
+
+def load_rivers(rivers_path: str):
+    """Safely load rivers shapefile; return None on failure.
+
+    Accepts a .shp file or a directory containing HydroRIVERS .shp.
+    """
+    if not rivers_path:
+        return None
+    try:
+        shp = _resolve_shp_path(rivers_path)
+        if shp.is_file() and shp.suffix.lower() == ".shp":
+            return gpd.read_file(shp)
+        else:
+            print(f"No .shp found under '{rivers_path}', skip rivers overlay.")
+            return None
+    except Exception as e:
+        print(f"Failed to read rivers from '{rivers_path}': {e}")
+        return None
+
+
+def select_trunk_rivers(rivers_gdf: gpd.GeoDataFrame):
+    """按用户要求仅保留 ORD_FLOW ∈ {2,3,4} 的河段。
+
+    该筛选与 HydroRIVERS 的 `ORD_FLOW` 字段直接匹配，确保只显示主要干流。
+    """
+    if rivers_gdf is None or rivers_gdf.empty:
+        return rivers_gdf
+
+    try:
+        gdf = rivers_gdf.copy()
+        ord_flow = pd.to_numeric(gdf.get("ORD_FLOW", None), errors="coerce")
+        mask = ord_flow.isin([2, 3, 4])
+        gdf = gdf[mask]
+        print(f"Selected {len(gdf)} rivers with ORD_FLOW in [2,3,4] out of {len(rivers_gdf)}")
+        return gdf
+    except Exception as e:
+        print(f"Error selecting trunk rivers by ORD_FLOW: {e}")
+        return rivers_gdf
+
+
 def plot_attr_only(ax, gdf, rivers_gdf, attr: str, cmap="Spectral_r", vmax=None):
     """Plot hydrologic units colored by a chosen attribute.
 
@@ -108,7 +171,7 @@ def plot_attr_only(ax, gdf, rivers_gdf, attr: str, cmap="Spectral_r", vmax=None)
 
     gdf.plot(column=attr, ax=ax, cmap=cmap, vmin=0, vmax=vmax, edgecolor="none")
     if rivers_gdf is not None and not rivers_gdf.empty:
-        rivers_gdf.plot(ax=ax, color="white", linewidth=0.6)
+        rivers_gdf.plot(ax=ax, **RIVER_STYLE)
 
     ax.set_axis_off()
     add_north_arrow(ax)
@@ -124,10 +187,11 @@ def main(hydro_units_path: str, species_csv: str = None, rivers_path: str = None
     # Read hydrologic units
     gdf = gpd.read_file(hydro_units_path)
 
-    # Optional rivers
+    # Optional rivers with trunk selection
     rivers_gdf = None
     if rivers_path:
-        rivers_gdf = gpd.read_file(rivers_path)
+        rivers_gdf = load_rivers(rivers_path)
+        rivers_gdf = select_trunk_rivers(rivers_gdf)
 
     # Reproject to Web Mercator for easy plotting
     target_crs = "EPSG:3857"
